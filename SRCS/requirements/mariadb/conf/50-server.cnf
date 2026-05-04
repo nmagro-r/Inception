@@ -1,0 +1,43 @@
+[mysqld]
+
+# Usuario del sistema que ejecuta MariaDB (seguridad, no usar root)
+user = mysql
+
+# Archivo donde se guarda el PID del proceso (control del servicio)
+pid-file = /run/mysqld/mysqld.pid
+
+# Socket para conexiones locales (usado por init.sh)
+socket = /run/mysqld/mysqld.sock
+
+# Puerto estándar de MariaDB/MySQL
+port = 3306
+
+# Directorio base donde está instalado MariaDB
+basedir = /usr
+
+# Directorio donde se almacenan las bases de datos (debe coincidir con el volumen Docker)
+datadir = /var/lib/mysql
+
+# Directorio para archivos temporales
+tmpdir = /tmp
+
+# Permite conexiones desde otros contenedores (clave en Docker)
+bind-address = 0.0.0.0
+
+# Archivo donde se registran errores de MariaDB
+log_error = /var/log/mysql/error.log
+
+# Codificación UTF-8 completa (necesaria para WordPress y emojis)
+character-set-server = utf8mb4
+
+# Reglas de comparación de texto (no distingue mayúsculas/minúsculas)
+collation-server = utf8mb4_general_ci
+
+# Memoria usada por InnoDB (motor principal de MariaDB)
+innodb_buffer_pool_size = 128M
+
+# Cada tabla se guarda en su propio archivo (mejor organización)
+innodb_file_per_table = 1
+
+# Número máximo de conexiones simultáneas al servidor
+max_connections = 100

@@ -1,0 +1,99 @@
+#dice que contenedores existen
+#como se conectan
+#que puertos usan
+#que volumenes comparten
+
+services:
+  mariadb:
+    container_name: mariadb
+    build:
+      context: ./SRCS/requirements/mariadb
+      dockerfile: Dockerfile
+    image: mariadb
+    env_file:
+      - .env
+
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - /home/nmagro-r/data/mysql_log:/var/log/mysql
+
+    networks:
+      - inception
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+    restart: unless-stopped
+
+
+  wordpress:
+    container_name: wordpress
+    build:
+      context: ./SRCS/requirements/wordpress
+      dockerfile: Dockerfile
+    image: wordpress
+
+    env_file:
+      - .env
+
+    volumes:
+      - wordpress_data:/var/www/html
+
+    networks:
+      - inception
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+  nginx:
+    container_name: nginx
+    build:
+      context: ./SRCS/requirements/nginx
+      dockerfile: Dockerfile
+    image: nginx
+
+    env_file:
+      - .env
+
+    volumes:
+      - wordpress_data:/var/www/html
+
+    networks:
+      - inception
+
+    depends_on:
+      - wordpress
+
+    ports:
+      - "8443:443"
+
+    restart: unless-stopped
+
+
+volumes:
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/nmagro-r/data/wordpress
+
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/nmagro-r/data/mariadb
+
+
+networks:
+  inception:
+    driver: bridge
