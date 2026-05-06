@@ -46,7 +46,7 @@ if [ -z "$(ls -A "$DATADIR")" ]; then
     # Espera hasta que MariaDB responda, no continua hasta que esté vivo
 
 
-    mysql --socket="$RUNDIR/mysql.sock" <<EOF
+mysql --socket="$RUNDIR/mysql.sock" <<EOF
 
 ALTER USER 'root'@'localhost'
 IDENTIFIED VIA mysql_native_password
@@ -59,14 +59,15 @@ CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
 
 FLUSH PRIVILEGES;
+EOF
 
-    kill "$TMP_PID"
+kill "$TMP_PID"
     # Apaga MariadB temporal
     # Ya todo configurado
 
-    wait "$TMP_PID" 2 >/dev/null || true
+wait "$TMP_PID" 2>/dev/null || true
 
-    echo "[+] MariaDB initialized"
+echo "[+] MariaDB initialized"
 
 else
     echo "[+] MariaDB already exits, skipping init"
@@ -77,7 +78,7 @@ mkdir -p "$RUNDIR"
 chown mysql:mysql "$RUNDIR"
 chmod 755 "$RUNDIR"
 
-exec mysqld --user=mysql --console --socket="$RUNDIR/mysqld.sock"
+exec mysqld --user=mysql --console --socket="$RUNDIR/mysql.sock"
 # Ejecutamos MariaDB como servicio principal
 # exec hace que mysql sea el proceso principal(PID1),
 # que docker gestione correctamente,
