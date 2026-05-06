@@ -1,6 +1,6 @@
 NAME = inception
 
-COMPOSE = docker compose -f docker-compose.yml
+COMPOSE = docker-compose -f docker-compose.yml
 
 all: up
 

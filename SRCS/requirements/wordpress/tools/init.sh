@@ -2,20 +2,18 @@
 
 set -e
 
-# Si algo falla, el script se detiene
-
 echo "[+] Waiting for MariaDB..."
-
-until mysqladmin ping -h"mariadb" -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent; do
+until mysqladmin ping -h mariadb -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent; do
     sleep 2
 done
-
-echo "[+] MariaDB is ready"
+echo "[+] MariaDB ready"
 
 cd /var/www/html
 
-# Si WordPress no está instalado
-if [ ! -f wp-config.php ]; then
+if [ ! -f /var/www/html/wp-config.php ]; then
+
+    echo "[+] Fresh install detected, cleaning directory..."
+    rm -rf /var/www/html/*
 
     echo "[+] Downloading WordPress..."
     wp core download --allow-root
@@ -45,7 +43,5 @@ if [ ! -f wp-config.php ]; then
 else
     echo "[+] WordPress already installed"
 fi
-
-echo "[+] Starting PHP-FPM..."
 
 exec php-fpm8.2 -F
