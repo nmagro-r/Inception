@@ -1,86 +1,47 @@
 #!/bin/bash
-
 set -e
-
-# Si un comando falla, para todo el script
-# No continua si algo falla
 
 DATADIR="/var/lib/mysql"
 RUNDIR="/run/mysqld"
-
-# datadir->donde vive la base de datos
-# rundir->socket y archivos temporales
+# Este es nuestro "testigo"
+FIRST_RUN_FILE="$DATADIR/.setup_done"
 
 mkdir -p "$DATADIR" "$RUNDIR"
-
-# crea las carpetas si no existen
-
 chown -R mysql:mysql "$DATADIR" "$RUNDIR"
 
-# Cambia propetario a mysql
-
-chmod 755 "$RUNDIR"
-
-# Permisos: Dueño-> leer/escribir/ejecutar
-# otros-> leer/ejecutar
-
-if [ -z "$(ls -A "$DATADIR")" ]; then
-    echo "[+] Initializing MariaDB..."
-    # Si el directorio está vacio, log informativo.
+# CAMBIO AQUÍ: Solo inicializamos si NO existe nuestro archivo centinela
+if [ ! -f "$FIRST_RUN_FILE" ]; then
+    echo "[+] Initializing MariaDB for the FIRST time..."
     
-    mysqld --initialize-insecure --user=mysql --datadir="$DATADIR"
-    # Crea estructura interna de la BD->tablas del sistema(mysql, users, etc..)
-    # Insecure = root sin password inicial
+    # 1. Instalamos las tablas base si no están
+    mysql_install_db --user=mysql --datadir="$DATADIR" > /dev/null
 
-    mysqld --user=mysql --skip-networking --socket="$RUNDIR/mysql.sock" --datadir="$DATADIR" &
-    # Arranca MariaDB en segundo plano
-    # Skip-networking-> solo local
-    # --socket-> comunicación interna
-
+    # 2. Arrancamos temporal para configurar
+    mysqld --user=mysql --datadir="$DATADIR" --skip-networking &
     TMP_PID=$!
-    # Guarda PID del proceso
 
-    until mysqladmin --socket="$RUNDIR/mysql.sock" ping >/dev/null 2>&1; do
+    until mysqladmin ping >/dev/null 2>&1; do
         sleep 1
     done
-    # Espera hasta que MariaDB responda, no continua hasta que esté vivo
 
-
-mysql --socket="$RUNDIR/mysql.sock" <<EOF
-
-ALTER USER 'root'@'localhost'
-IDENTIFIED VIA mysql_native_password
-USING PASSWORD('${MYSQL_ROOT_PASSWORD}');
-
+    # 3. Configuración SQL (asegúrate de las comillas en ${MYSQL_USER})
+    mysql <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 CREATE DATABASE IF NOT EXISTS ${MYSQL_DATABASE};
-
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';
-
 GRANT ALL PRIVILEGES ON ${MYSQL_DATABASE}.* TO '${MYSQL_USER}'@'%';
-
 FLUSH PRIVILEGES;
 EOF
 
-kill "$TMP_PID"
-    # Apaga MariadB temporal
-    # Ya todo configurado
-
-wait "$TMP_PID" 2>/dev/null || true
-
-echo "[+] MariaDB initialized"
-
+    # 4. Creamos el archivo centinela para que la próxima vez se lo salte
+    touch "$FIRST_RUN_FILE"
+    
+    kill "$TMP_PID"
+    wait "$TMP_PID"
+    echo "[+] MariaDB initialization finished"
 else
-    echo "[+] MariaDB already exits, skipping init"
-    # Si ya hay datos , no toca nada.
+    echo "[+] MariaDB already configured (Centinel file found)"
 fi
 
-mkdir -p "$RUNDIR"
-chown mysql:mysql "$RUNDIR"
-chmod 755 "$RUNDIR"
-
-exec mysqld --user=mysql --console --socket="$RUNDIR/mysql.sock"
-# Ejecutamos MariaDB como servicio principal
-# exec hace que mysql sea el proceso principal(PID1),
-# que docker gestione correctamente,
-# y que las señales(stop/restart) funciones bien.
-# --console hace que los logs salgan por pantalla
+# Comando final
+exec mysqld --user=mysql --console --bind-address=0.0.0.0
